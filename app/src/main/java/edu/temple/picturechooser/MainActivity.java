@@ -1,9 +1,14 @@
 package edu.temple.picturechooser;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -83,19 +88,27 @@ public class MainActivity extends AppCompatActivity {
         Retrofit retrofit = builder.build();
         StegosaurusService client = retrofit.create(StegosaurusService.class);
         if(baseImageUri != null) {
-            Call<String> call = client.howManyBytes(prepareFilePart("image", baseImageUri), false);
-            call.enqueue(new Callback<String>() {
-                @Override
-                public void onResponse(Call<String> call, Response<String> response) {
-                    t.setText(response.body());
-                }
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    PICK_BASE_IMAGE);
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                Call<String> call = client.howManyBytes(prepareFilePart("image", baseImageUri), false);
+                call.enqueue(new Callback<String>() {
+                    @Override
+                    public void onResponse(Call<String> call, Response<String> response) {
+                        t.setText(response.body());
+                    }
 
-                @Override
-                public void onFailure(Call<String> call, Throwable t) {
-                    Toast.makeText(MainActivity.this, "Can't get capacity", Toast.LENGTH_SHORT).show();
-                    Log.i("Throwable", t.toString());
-                }
-            });
+                    @Override
+                    public void onFailure(Call<String> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, "Can't get capacity", Toast.LENGTH_SHORT).show();
+                        Log.i("Throwable", t.toString());
+                    }
+                });
+            }
+            else
+                Toast.makeText(MainActivity.this, "external storage: " + isExternalStorageWritable(), Toast.LENGTH_SHORT).show();
+
         }
     }
 
@@ -184,6 +197,14 @@ public class MainActivity extends AppCompatActivity {
 
         // MultipartBody.Part is used to send also the actual file name
         return MultipartBody.Part.createFormData(partName, file.getName(), requestFile);
+    }
+
+    public boolean isExternalStorageWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
     }
 
     public void openGallery(int resultCode){
